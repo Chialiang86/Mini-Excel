@@ -78,7 +78,7 @@ vector<string> strSplit(string s, string delimiter){
 			l = i;
 		} else i++;
 	}
-	if(l < s.length()) ans.push_back(s.substr(l));
+	if(l < s.length() && s.substr(l) != "") ans.push_back(s.substr(l));
 	return ans;
 }
 
@@ -96,8 +96,9 @@ public:
     void addIndex(string iname);
     Element& operator()(string c, string i);
     Element& operator()(int c, int i);
-    vector<string> funcParser(string s);
-    vector<string> posParser(string s);
+    vector<string> funcParse(string s);
+    vector<string> argParse(string s);
+    vector<string> posParse(string s);
     string SUM(string arg);
     string IF(string arg);
     string VLOOKUP(string arg);
@@ -155,7 +156,7 @@ Element& Excel::operator()(int col, int index){
     return table[col][index];
 }
 
-vector<string> Excel::funcParser(string s){
+vector<string> Excel::funcParse(string s){
     vector<string> ans;
     if(strSplit(s, "(").size() > 1){
         ans.push_back(s.substr(0, s.find("(")));
@@ -166,17 +167,51 @@ vector<string> Excel::funcParser(string s){
     return ans;
 }
 
+vector<string> Excel::argParse(string s){
+    vector<string> args;
+    string arg;
+    bool flag;
+    int pcnt;
+    //split by ',' omit ' ', parse ()
+
+    for(int i = 0; i < s.size(); i++){
+        arg = "";
+        flag = false;
+        pcnt = 0;
+        while(i < s.size()){
+            if(s[i] != ' '){
+                if((!flag && s[i] == ',') || (flag && pcnt == 0 && s[i] == ',')) break;
+                arg += s[i];
+                if(s[i] == '('){
+                    flag = true;
+                    pcnt++;
+                } else if(s[i] == ')'){
+                    if(pcnt == 0 || flag == false){
+                        cout << "\")\" should appear after \"(\"" << endl;
+                        break;
+                    }
+                    pcnt--;
+                }
+            }
+
+            i++;
+        }
+
+        args.push_back(arg);
+    }
+    return args;
+}
+
 string Excel::SUM(string arg){
     vector<string> parseArg, rangeArg, args;
 
-    args = strSplit(arg, ",");
+    args = argParse(arg);
 
     int sum = 0;
     vector<string> pos1, pos2;
 
     for(int i = 0; i < args.size(); i++){
-        cout << "arg " << i + 1 << " = " << args[i] << endl;
-        parseArg = funcParser(args[i]);
+        parseArg = funcParse(args[i]);
 
         if(parseArg.size() > 1){
             args[i] = parseArg[1];
@@ -191,25 +226,23 @@ string Excel::SUM(string arg){
         rangeArg = strSplit(args[i], ":");
 
         //case1 1 num
-        if(parseArg.size() == 1){
-            if(isNum(parseArg[0]))
-                sum += atoi(parseArg[0].c_str());
+        if(rangeArg.size() == 1){
+            if(isNum(rangeArg[0]))
+                sum += atoi(rangeArg[0].c_str());
             else{
-                pos1 = posParser(rangeArg[0]);
+                pos1 = posParse(rangeArg[0]);
                 sum += table[C[pos1[0]]][I[pos1[1]]].iVal();
             }
         }
         
         //case2 multiple num
         if(rangeArg.size() == 2){
-            pos1 = posParser(rangeArg[0]);
-            pos2 = posParser(rangeArg[1]);
-            cout << "(" << pos1[0] << "," << pos1[1] << ")->(" << pos2[0] << "," << pos2[1] << ")" << endl;
-            for(int i = I[pos1[1]]; i < I[pos2[1]]; i++)
-                for(int c = C[pos1[0]]; c < C[pos2[0]]; c++){
-                    cout << "(" << c << "," << i << ") = " << table[c][i].val() << endl;
+            pos1 = posParse(rangeArg[0]);
+            pos2 = posParse(rangeArg[1]);
+            //cout << "(" << pos1[0] << "," << pos1[1] << ")->(" << pos2[0] << "," << pos2[1] << ")" << endl;
+            for(int i = I[pos1[1]]; i <= I[pos2[1]]; i++)
+                for(int c = C[pos1[0]]; c <= C[pos2[0]]; c++)
                     sum += table[c][i].iVal();
-                }
         }
         
 
@@ -227,7 +260,7 @@ string Excel::VLOOKUP(string arg){
 }
 
 
-vector<string> Excel::posParser(string s){
+vector<string> Excel::posParse(string s){
     vector<string> res;
     string arg1 = "", arg2 = "";
     for(int i = 0; i < s.size(); i++){
@@ -308,8 +341,8 @@ int main(int argc, char * argv[]){
     string arg;
     do{
         cout << ">";
-        cin >> arg;
-        args = e.funcParser(arg);
+        getline(cin, arg);
+        args = e.funcParse(arg);
         if(args.size() == 2){
             if(args[0] == "SUM")
                 cout << "SUM(" << args[1] << ") = " << e.SUM(args[1]) << endl;
