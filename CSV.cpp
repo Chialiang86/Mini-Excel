@@ -44,12 +44,11 @@ public:
 
     int iVal(){
         try{
-            if(t != "int" && t != "null")
-                throw v + string("cannot convert to int!");
+            if(t != "int")
+                throw v + string("(type = ") + string(t + ")") + string("cannot convert to int!");
         } catch(string errmsg){
             cout << errmsg << endl;
         }
-        if(t == "null") return 0;
         return atoi(v.c_str());
     }
 
@@ -97,14 +96,13 @@ public:
     Element& operator()(string c, string i);
     Element& operator()(int c, int i);
     vector<string> funcParse(const string s);
-    vector<string> argParse(const string s);
+    vector<string> argParse(const string s, const string d);
     vector<string> posParse(const string s);
     string valParse(const string s);
     string SUM(string arg);
     string IF(string arg);
     string VLOOKUP(string arg);
     void print(int w = 12);
-    //Excel& operator=(string s);
 
     friend vector<string> strSplit(string s, string delimiter);
 private:
@@ -163,7 +161,7 @@ Element& Excel::operator()(int col, int index){
     return table[col][index];
 }
 
-vector<string> Excel::argParse(const string s){
+vector<string> Excel::argParse(const string s, const string d){
     vector<string> args;
     string arg;
     bool flag;
@@ -178,16 +176,15 @@ vector<string> Excel::argParse(const string s){
         while(i < s.size()){
             
             if(s[i] != ' '){
-
-                if((!flag && s[i] == ',') || (flag && pcnt == 0 && s[i] == ','))  break;
-                
+                if((!flag && s.substr(i, d.size()) == d) || (flag && pcnt == 0 && s.substr(i, d.size()) == d)){
+                    i += (d.size() - 1);
+                    break;
+                }  
                 arg += s[i];
-                
                 if(s[i] == '('){
                     flag = true;
                     pcnt++;
                 } 
-                
                 if(s[i] == ')'){
                     if(pcnt == 0 || flag == false){
                         cout << "\")\" should appear after \"(\"" << endl;
@@ -251,22 +248,22 @@ string Excel::valParse(const string s){
     op = "null";
     res = s;
 
-    if(strSplit(s, ">=").size() > 1)
+    if(argParse(res, ">=").size() > 1 && funcParse(res).size() > 1)
         op = ">=";
-    else if(strSplit(s, "<=").size() > 1)
+    else if(argParse(res, "<=").size() > 1 && funcParse(res).size() > 1)
         op = "<=";
-    else if(strSplit(s, ">").size() > 1)
-        op = ">";
-    else if(strSplit(s, "<").size() > 1)
-        op = "<";
-    else if(strSplit(s, "=").size() > 1)
+    else if(argParse(res, "=").size() > 1 && funcParse(res).size() > 1)
         op = "=";
+    else if(argParse(res, ">").size() > 1 && funcParse(res).size() > 1)
+        op = ">";
+    else if(argParse(res, "<").size() > 1 && funcParse(res).size() > 1)
+        op = "<";
 
-    cout << "res1 = " << res << endl;
+    //cout << "res1 = " << res << endl;
 
     if(op != "null"){
         vector<string> lval, rval;
-        cpArg = strSplit(s, op);
+        cpArg = argParse(res, op);
 
         if(cpArg.size() != 2){
             cout << "size of cpArg in valParse error : " << cpArg.size() << endl;
@@ -339,6 +336,7 @@ string Excel::valParse(const string s){
         val = funcParse(s);
         
         if(val.size() > 1){
+            cout << val[0] << " " << val[1] << endl;
             if(val[0] == "SUM")
                 res = SUM(val[1]);
             else if(val[0] == "IF")
@@ -355,50 +353,103 @@ string Excel::valParse(const string s){
                 res = table[C[pos[0]]][I[pos[1]]].val();
             }
         } else {
-            if(!isNum(s) && strSplit(s, ":").size() == 1){
-                pos = posParse(s);
+            if(strSplit(s, ">=").size() > 1){
+                cpArg = strSplit(s, ">=");
+                if(!isNum(cpArg[0])){
+                    pos = posParse(cpArg[0]);
+                    cpArg[0] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(!isNum(cpArg[1])){
+                    pos = posParse(cpArg[1]);
+                    cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(atoi(cpArg[0].c_str()) >= atoi(cpArg[1].c_str()))
+                    res = "1";
+                else res = "0";
+            } else if(strSplit(s, "<=").size() > 1){
+                cpArg = strSplit(s, "<=");
+                if(!isNum(cpArg[0])){
+                    pos = posParse(cpArg[0]);
+                    cpArg[0] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(!isNum(cpArg[1])){
+                    pos = posParse(cpArg[1]);
+                    cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(atoi(cpArg[0].c_str()) <= atoi(cpArg[1].c_str()))
+                    res = "1";
+                else res = "0";
+            } else if(strSplit(s, "=").size() > 1){
+                cpArg = strSplit(s, "=");
+                if(!isNum(cpArg[0])){
+                    pos = posParse(cpArg[0]);
+                    cpArg[0] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(!isNum(cpArg[1])){
+                    pos = posParse(cpArg[1]);
+                    cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(cpArg[0] == cpArg[1])
+                    res = "1";
+                else res = "0";
+                
+            } else if(strSplit(s, ">").size() > 1){
+                cpArg = strSplit(s, ">");
+                if(!isNum(cpArg[0])){
+                    pos = posParse(cpArg[0]);
+                    cpArg[0] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(!isNum(cpArg[1])){
+                    pos = posParse(cpArg[1]);
+                    cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(atoi(cpArg[0].c_str()) > atoi(cpArg[1].c_str()))
+                    res = "1";
+                else res = "0";
+            } else if(strSplit(s, "<").size() > 1){
+                cpArg = strSplit(s, "<");
+                if(!isNum(cpArg[0])){
+                    pos = posParse(cpArg[0]);
+                    cpArg[0] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(!isNum(cpArg[1])){
+                    pos = posParse(cpArg[1]);
+                    cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(atoi(cpArg[0].c_str()) < atoi(cpArg[1].c_str()))
+                    res = "1";
+                else res = "0";
+            }
+
+            if(!isNum(res) && strSplit(res, ":").size() == 1){
+                pos = posParse(res);
                 res = table[C[pos[0]]][I[pos[1]]].val();
-            } else res = s;
+            }
         }
     }
-
-    /*
-    pos = posParse(s);
-    if(pos.size() == 2 && pos[0] != "null" && pos[1] != "null"){
-        return table[C[pos[0]]][I[pos[1]]].val();
-    }
-    cout << "valParse error : " << s << endl;*/
-    cout << "res2 = " << res << endl;
     return res;
 }
 
 string Excel::SUM(string arg){
     vector<string> funcArg, rangeArg, args;
 
-    args = argParse(arg);
+    args = argParse(arg, ",");
 
     int sum = 0;
     vector<string> pos1, pos2;
 
     for(int i = 0; i < args.size(); i++){
         cout << "sum arg : " << args[i] << endl;
-
-        /*
-        funcArg = funcParse(args[i]);
-        if(funcArg.size() > 1){
-            args[i] = funcArg[1];
-            if(funcArg[0] == "SUM")
-                args[i] = SUM(funcArg[1]);
-            else if(funcArg[0] == "IF")
-                args[i] = IF(funcArg[1]);
-            else if(funcArg[0] == "VLOOKUP")
-                args[i] = VLOOKUP(funcArg[1]);
-
-            if(args[i] == "null"){
-                cout << "args of SUM contains \"null\"" << endl;
-                return "null";
-            }
-        } */
         
         args[i] = valParse(args[i]);
         rangeArg = strSplit(args[i], ":");
@@ -409,22 +460,25 @@ string Excel::SUM(string arg){
                 sum += atoi(rangeArg[0].c_str());
             else{
                 pos1 = posParse(rangeArg[0]);
+                if(table[C[pos1[0]]][I[pos1[1]]].val() == "null")
+                    return "null";
                 sum += table[C[pos1[0]]][I[pos1[1]]].iVal();
             }
         }
         
         //case2 multiple num
         if(rangeArg.size() == 2){
-            cout << "case 2 : " << rangeArg[0] << " " << rangeArg[1] << endl;
+            //cout << "case 2 : " << rangeArg[0] << " " << rangeArg[1] << endl;
             pos1 = posParse(rangeArg[0]);
             pos2 = posParse(rangeArg[1]);
-            //cout << "(" << pos1[0] << "," << pos1[1] << ")->(" << pos2[0] << "," << pos2[1] << ")" << endl;
+            ////cout << "(" << pos1[0] << "," << pos1[1] << ")->(" << pos2[0] << "," << pos2[1] << ")" << endl;
             for(int i = I[pos1[1]]; i <= I[pos2[1]]; i++)
-                for(int c = C[pos1[0]]; c <= C[pos2[0]]; c++)
+                for(int c = C[pos1[0]]; c <= C[pos2[0]]; c++){
+                    if(table[C[pos1[0]]][I[pos1[1]]].val() == "null")
+                        return "null";
                     sum += table[c][i].iVal();
+                }
         }
-        
-
     }
 
     return to_string(sum);
@@ -433,7 +487,9 @@ string Excel::SUM(string arg){
 string Excel::IF(string arg){
     vector<string> funcArg, cpArg, args;
 
-    args = argParse(arg);
+    cout << "if arg = " << arg << endl;
+
+    args = argParse(arg, ",");
 
     string res;
     string cpOp = "none";
@@ -442,95 +498,18 @@ string Excel::IF(string arg){
     if(args.size() == 3){
         for(int i = 0; i < args.size(); i++){
             cout << "if arg : " << args[i] << endl;
-            funcArg = funcParse(args[i]);
-
-            if(funcArg.size() > 1){
-                args[i] = funcArg[1];
-                if(funcArg[0] == "SUM")
-                    args[i] = SUM(funcArg[1]);
-                else if(funcArg[0] == "IF")
-                    args[i] = IF(funcArg[1]);
-                else if(funcArg[0] == "VLOOKUP")
-                    args[i] = VLOOKUP(funcArg[1]);
-            } 
-
-            if(i > 0 && !isNum(args[i])){
-                pos = posParse(args[i]);
-                args[i] = table[C[pos[0]]][I[pos[1]]].iVal();
-            } 
+            args[i] = valParse(args[i]);
         }
 
-        if(strSplit(args[0], ">").size() == 2){
-            cpArg = strSplit(args[0], ">");
-            if(cpArg.size() == 2){
-                if(cpArg[0] == "null" || cpArg[1] == "null")
-                    res = "null";
-                else{
-                    if(atoi(valParse(cpArg[0]).c_str()) > atoi(valParse(cpArg[1]).c_str())){
-                        res = args[1];
-                    } else res = args[2];
-                }
-            }
-        } else if(strSplit(args[0], "<").size() == 2){
-            cpArg = strSplit(args[0], "<");
-            if(cpArg.size() == 2){
-                if(cpArg[0] == "null" || cpArg[1] == "null")
-                    res = "null";
-                else{
-                    if(atoi(valParse(cpArg[0]).c_str()) < atoi(valParse(cpArg[1]).c_str())){
-                        res = args[1];
-                    } else res = args[2];
-                }
-            }
-        } else if(strSplit(args[0], "=").size() == 2){
-            cpArg = strSplit(args[0], "=");
-            if(cpArg.size() == 2){
-                if(cpArg[0] == "null" || cpArg[1] == "null")
-                    res = "null";
-                else{
-                    if(atoi(valParse(cpArg[0]).c_str()) == atoi(valParse(cpArg[1]).c_str())){
-                        res = args[1];
-                    } else res = args[2];
-                }
-            }
-        } else if(strSplit(args[0], ">=").size() == 2){
-            cpArg = strSplit(args[0], ">=");
-            if(cpArg.size() == 2){
-                if(cpArg[0] == "null" || cpArg[1] == "null")
-                    res = "null";
-                else{
-                    if(atoi(valParse(cpArg[0]).c_str()) >= atoi(valParse(cpArg[1]).c_str())){
-                        res = args[1];
-                    } else res = args[2];
-                }
-            }
-        } else if(strSplit(args[0], "<=").size() == 2){
-            cpArg = strSplit(args[0], "<=");
-            if(cpArg.size() == 2){
-                if(cpArg[0] == "null" || cpArg[1] == "null")
-                    res = "null";
-                else{
-                    if(atoi(valParse(cpArg[0]).c_str()) <= atoi(valParse(cpArg[1]).c_str())){
-                        res = args[1];
-                    } else res = args[2];
-                }
-            }
+        if(strSplit(args[0], ":").size() == 1){
+            res = args[0] == "1" ? args[1] : (args[0] == "0" ? args[2] : "null");
         } else {
-            if(isNum(args[0])){
-                res = atoi(args[0].c_str()) == 0 ? args[2] : args[1];
-            } else {
-                cout << "fisrt arg in IF should contain >, <, =, >=, <= or a single value" << endl;
-                res = "null";
-            }
+            cout << "the \":\" shouldn't appear in first arg of IF" << endl;
+            res = "null";
         }
     } else {
-        cout << "num of arg in IF function should be 3" << endl;
+        cout << "num of arg in IF is not correct, expect 3 given, get " << args.size() << endl;
         res = "null";
-    }
-
-    if(!isNum(res)){
-        pos = posParse(res);
-        res = table[C[pos[0]]][I[pos[1]]].val();
     }
 
     return res;
