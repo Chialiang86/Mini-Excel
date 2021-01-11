@@ -96,10 +96,10 @@ public:
     void addIndex(string iname);
     Element& operator()(string c, string i);
     Element& operator()(int c, int i);
-    vector<string> funcParse(string s);
-    vector<string> argParse(string s);
-    vector<string> posParse(string s);
-    string valParse(string s);
+    vector<string> funcParse(const string s);
+    vector<string> argParse(const string s);
+    vector<string> posParse(const string s);
+    string valParse(const string s);
     string SUM(string arg);
     string IF(string arg);
     string VLOOKUP(string arg);
@@ -163,7 +163,7 @@ Element& Excel::operator()(int col, int index){
     return table[col][index];
 }
 
-vector<string> Excel::argParse(string s){
+vector<string> Excel::argParse(const string s){
     vector<string> args;
     string arg;
     bool flag;
@@ -179,7 +179,7 @@ vector<string> Excel::argParse(string s){
             
             if(s[i] != ' '){
 
-                if((!flag && s[i] == ',') || (flag && pcnt == 0 && s[i] == ',')) {  break; }
+                if((!flag && s[i] == ',') || (flag && pcnt == 0 && s[i] == ','))  break;
                 
                 arg += s[i];
                 
@@ -205,21 +205,18 @@ vector<string> Excel::argParse(string s){
     return args;
 }
 
-vector<string> Excel::funcParse(string s){
+vector<string> Excel::funcParse(const string s){
     vector<string> ans;
-    string temp;
     if(strSplit(s, "(").size() > 1){
         ans.push_back(s.substr(0, s.find("(")));
-        temp = s.substr(s.find("(") + 1, s.size() - s.find("(") - 2);
-        // val parse
-        ans.push_back(temp);
+        ans.push_back(s.substr(s.find("(") + 1, s.size() - s.find("(") - 2));
     } else {
         ans.push_back(s);
     }
     return ans;
 }
 
-vector<string> Excel::posParse(string s){
+vector<string> Excel::posParse(const string s){
     vector<string> res;
     string arg1 = "", arg2 = "";
     bool capitalOff = false;
@@ -232,7 +229,7 @@ vector<string> Excel::posParse(string s){
                 if(capitalOff)
                     arg2 += s[i];
                 else throw string("format error : column name first\n");
-            } else throw string(string("error character \n") + s[i]);
+            } else throw string(string("error character : (") + s[i] + string(")\n"));
         } catch(const string errmsg){
             cout << errmsg;
             res.push_back("null");
@@ -245,25 +242,138 @@ vector<string> Excel::posParse(string s){
     return res;
 }
 
-string Excel::valParse(string s){
+string Excel::valParse(const string s){
     if(isNum(s)) return s;
-    string temp = s;
-    vector<string> pos;
-    if(strSplit(s, ">").size() > 1){
+
+    string op, res;
+    vector<string> pos, cpArg, funcArg;
+
+    op = "null";
+    res = s;
+
+    if(strSplit(s, ">=").size() > 1)
+        op = ">=";
+    else if(strSplit(s, "<=").size() > 1)
+        op = "<=";
+    else if(strSplit(s, ">").size() > 1)
+        op = ">";
+    else if(strSplit(s, "<").size() > 1)
+        op = "<";
+    else if(strSplit(s, "=").size() > 1)
+        op = "=";
+
+    cout << "res1 = " << res << endl;
+
+    if(op != "null"){
+        vector<string> lval, rval;
+        cpArg = strSplit(s, op);
+
+        if(cpArg.size() != 2){
+            cout << "size of cpArg in valParse error : " << cpArg.size() << endl;
+            return "null"; 
+        }
+
+        lval = funcParse(cpArg[0]);
+        if(lval.size() > 1){
+            if(lval[0] == "SUM")
+                cpArg[0] = SUM(lval[1]);
+            else if(lval[0] == "IF")
+                cpArg[0] = IF(lval[1]);
+            else if(lval[0] == "VLOOKUP")
+                cpArg[0] = VLOOKUP(lval[1]);
+            else {
+                cout << "lval error in valParse" << endl;
+                res = "null";
+            }
+
+            if(!isNum(cpArg[0])){
+                pos = posParse(cpArg[0]);
+                cpArg[0] = table[C[pos[0]]][I[pos[1]]].val();
+            }
+        }
+
+        rval = funcParse(cpArg[1]);
+        if(rval.size() > 1){
+            if(rval[0] == "SUM")
+                cpArg[1] = SUM(rval[1]);
+            else if(rval[0] == "IF")
+                cpArg[1] = IF(rval[1]);
+            else if(rval[0] == "VLOOKUP")
+                cpArg[1] = VLOOKUP(rval[1]);
+            else {
+                cout << "rval error in valParse" << endl;
+                res = "null";
+            }
+
+            if(!isNum(cpArg[1])){
+                pos = posParse(cpArg[1]);
+                cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+            }
+        }
+
+        if(op == ">"){
+            if(atoi(cpArg[0].c_str()) > atoi(cpArg[1].c_str()))
+                res = "1";
+            else res = "0";
+        } else if(op == "<"){
+            if(atoi(cpArg[0].c_str()) < atoi(cpArg[1].c_str()))
+                res = "1";
+            else res = "0";
+        } else if(op == "="){
+            if(atoi(cpArg[0].c_str()) == atoi(cpArg[1].c_str()))
+                res = "1";
+            else res = "0";
+        } else if(op == ">="){
+            if(atoi(cpArg[0].c_str()) >= atoi(cpArg[1].c_str()))
+                res = "1";
+            else res = "0";
+        } else if(op == "<="){
+            if(atoi(cpArg[0].c_str()) <= atoi(cpArg[1].c_str()))
+                res = "1";
+            else res = "0";
+        } 
+
+    } else {
+        vector<string> val;
         
+        val = funcParse(s);
+        
+        if(val.size() > 1){
+            if(val[0] == "SUM")
+                res = SUM(val[1]);
+            else if(val[0] == "IF")
+                res = IF(val[1]);
+            else if(val[0] == "VLOOKUP")
+                res = VLOOKUP(val[1]);
+            else {
+                cout << "val error in valParse" << endl;
+                res = "null";
+            }
+
+            if(!isNum(res)){
+                pos = posParse(res);
+                res = table[C[pos[0]]][I[pos[1]]].val();
+            }
+        } else {
+            if(!isNum(s) && strSplit(s, ":").size() == 1){
+                pos = posParse(s);
+                res = table[C[pos[0]]][I[pos[1]]].val();
+            } else res = s;
+        }
     }
 
-
+    /*
     pos = posParse(s);
     if(pos.size() == 2 && pos[0] != "null" && pos[1] != "null"){
         return table[C[pos[0]]][I[pos[1]]].val();
     }
-    cout << "valParse error : " << s << endl;
-    return "null";
+    cout << "valParse error : " << s << endl;*/
+    cout << "res2 = " << res << endl;
+    return res;
 }
 
 string Excel::SUM(string arg){
-    vector<string> parsedArg, rangeArg, args;
+    vector<string> funcArg, rangeArg, args;
 
     args = argParse(arg);
 
@@ -272,22 +382,25 @@ string Excel::SUM(string arg){
 
     for(int i = 0; i < args.size(); i++){
         cout << "sum arg : " << args[i] << endl;
-        parsedArg = funcParse(args[i]);
-        if(parsedArg.size() > 1){
-            args[i] = parsedArg[1];
-            if(parsedArg[0] == "SUM")
-                args[i] = SUM(parsedArg[1]);
-            else if(parsedArg[0] == "IF")
-                args[i] = IF(parsedArg[1]);
-            else if(parsedArg[0] == "VLOOKUP")
-                args[i] = VLOOKUP(parsedArg[1]);
+
+        /*
+        funcArg = funcParse(args[i]);
+        if(funcArg.size() > 1){
+            args[i] = funcArg[1];
+            if(funcArg[0] == "SUM")
+                args[i] = SUM(funcArg[1]);
+            else if(funcArg[0] == "IF")
+                args[i] = IF(funcArg[1]);
+            else if(funcArg[0] == "VLOOKUP")
+                args[i] = VLOOKUP(funcArg[1]);
 
             if(args[i] == "null"){
                 cout << "args of SUM contains \"null\"" << endl;
                 return "null";
             }
-        } 
+        } */
         
+        args[i] = valParse(args[i]);
         rangeArg = strSplit(args[i], ":");
 
         //case1 1 num
@@ -302,6 +415,7 @@ string Excel::SUM(string arg){
         
         //case2 multiple num
         if(rangeArg.size() == 2){
+            cout << "case 2 : " << rangeArg[0] << " " << rangeArg[1] << endl;
             pos1 = posParse(rangeArg[0]);
             pos2 = posParse(rangeArg[1]);
             //cout << "(" << pos1[0] << "," << pos1[1] << ")->(" << pos2[0] << "," << pos2[1] << ")" << endl;
@@ -317,7 +431,7 @@ string Excel::SUM(string arg){
 }
 
 string Excel::IF(string arg){
-    vector<string> parsedArg, cpArg, args;
+    vector<string> funcArg, cpArg, args;
 
     args = argParse(arg);
 
@@ -328,16 +442,16 @@ string Excel::IF(string arg){
     if(args.size() == 3){
         for(int i = 0; i < args.size(); i++){
             cout << "if arg : " << args[i] << endl;
-            parsedArg = funcParse(args[i]);
+            funcArg = funcParse(args[i]);
 
-            if(parsedArg.size() > 1){
-                args[i] = parsedArg[1];
-                if(parsedArg[0] == "SUM")
-                    args[i] = SUM(parsedArg[1]);
-                else if(parsedArg[0] == "IF")
-                    args[i] = IF(parsedArg[1]);
-                else if(parsedArg[0] == "VLOOKUP")
-                    args[i] = VLOOKUP(parsedArg[1]);
+            if(funcArg.size() > 1){
+                args[i] = funcArg[1];
+                if(funcArg[0] == "SUM")
+                    args[i] = SUM(funcArg[1]);
+                else if(funcArg[0] == "IF")
+                    args[i] = IF(funcArg[1]);
+                else if(funcArg[0] == "VLOOKUP")
+                    args[i] = VLOOKUP(funcArg[1]);
             } 
 
             if(i > 0 && !isNum(args[i])){
@@ -495,11 +609,11 @@ int main(int argc, char * argv[]){
         args = e.funcParse(arg);
         if(args.size() == 2){
             if(args[0] == "SUM")
-                cout << "SUM(" << args[1] << ") = " << e.SUM(args[1]) << endl;
+                cout << "SUM(" << args[1] << ") = \n" << e.SUM(args[1]) << endl;
             else if(args[0] == "IF")
-                cout << "IF(" << args[1] << ") = " << e.IF(args[1]) << endl;
+                cout << "IF(" << args[1] << ") = \n" << e.IF(args[1]) << endl;
             else if(args[0] == "VLOOKUP")
-                cout << "VLOOKUP(" << args[1] << ") = " << e.VLOOKUP(args[1]) << endl;
+                cout << "VLOOKUP(" << args[1] << ") = \n" << e.VLOOKUP(args[1]) << endl;
         }
     } while(arg != "exit");
     
