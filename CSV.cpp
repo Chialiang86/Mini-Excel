@@ -81,6 +81,12 @@ vector<string> strSplit(string s, string delimiter){
 	return ans;
 }
 
+string typeOf(string s){
+    if(s == "null" || s == "") return "null";
+    if(s[0] == '\"' && s[s.size() - 1] == '\"') return "string";
+    return "int"; 
+}
+
 bool isNum(string v){
     for(int i = 0; i < v.size(); i++)
         if(v[i] < '0' || v[i] > '9')
@@ -203,12 +209,18 @@ vector<string> Excel::argParse(const string s, const string d){
 }
 
 vector<string> Excel::funcParse(const string s){
+    string str = "";
     vector<string> ans;
-    if(strSplit(s, "(").size() > 1){
-        ans.push_back(s.substr(0, s.find("(")));
-        ans.push_back(s.substr(s.find("(") + 1, s.size() - s.find("(") - 2));
+
+    for(int i = 0; i < s.size(); i++)
+        if(s[i] != ' ')
+            str += s[i];
+
+    if(strSplit(str, "(").size() > 1){
+        ans.push_back(str.substr(0, str.find("(")));
+        ans.push_back(str.substr(str.find("(") + 1, str.size() - str.find("(") - 2));
     } else {
-        ans.push_back(s);
+        ans.push_back(str);
     }
     return ans;
 }
@@ -308,6 +320,11 @@ string Excel::valParse(const string s){
             }
         }
 
+        if(typeOf(cpArg[0]) != typeOf(cpArg[1])){
+            cout << "type inconsistent : lval = " << cpArg[0] << ", rval = " << cpArg[1] << endl;
+            return "null";
+        }
+
         if(op == ">"){
             if(atoi(cpArg[0].c_str()) > atoi(cpArg[1].c_str()))
                 res = "1";
@@ -365,6 +382,11 @@ string Excel::valParse(const string s){
                     cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
                 }
 
+                if(typeOf(cpArg[0]) != typeOf(cpArg[1])){
+                    cout << "type inconsistent : lval = " << cpArg[0] << ", rval = " << cpArg[1] << endl;
+                    return "null";
+                }
+
                 if(atoi(cpArg[0].c_str()) >= atoi(cpArg[1].c_str()))
                     res = "1";
                 else res = "0";
@@ -378,6 +400,11 @@ string Excel::valParse(const string s){
                 if(!isNum(cpArg[1])){
                     pos = posParse(cpArg[1]);
                     cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(typeOf(cpArg[0]) != typeOf(cpArg[1])){
+                    cout << "type inconsistent : lval = " << cpArg[0] << ", rval = " << cpArg[1] << endl;
+                    return "null";
                 }
 
                 if(atoi(cpArg[0].c_str()) <= atoi(cpArg[1].c_str()))
@@ -395,10 +422,15 @@ string Excel::valParse(const string s){
                     cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
                 }
 
+                if(typeOf(cpArg[0]) != typeOf(cpArg[1])){
+                    cout << "type inconsistent : lval = " << cpArg[0] << ", rval = " << cpArg[1] << endl;
+                    return "null";
+                }
+
                 if(cpArg[0] == cpArg[1])
                     res = "1";
                 else res = "0";
-                
+
             } else if(strSplit(s, ">").size() > 1){
                 cpArg = strSplit(s, ">");
                 if(!isNum(cpArg[0])){
@@ -409,6 +441,11 @@ string Excel::valParse(const string s){
                 if(!isNum(cpArg[1])){
                     pos = posParse(cpArg[1]);
                     cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(typeOf(cpArg[0]) != typeOf(cpArg[1])){
+                    cout << "type inconsistent : lval = " << cpArg[0] << ", rval = " << cpArg[1] << endl;
+                    return "null";
                 }
 
                 if(atoi(cpArg[0].c_str()) > atoi(cpArg[1].c_str()))
@@ -424,6 +461,11 @@ string Excel::valParse(const string s){
                 if(!isNum(cpArg[1])){
                     pos = posParse(cpArg[1]);
                     cpArg[1] = table[C[pos[0]]][I[pos[1]]].val();
+                }
+
+                if(typeOf(cpArg[0]) != typeOf(cpArg[1])){
+                    cout << "type inconsistent : lval = " << cpArg[0] << ", rval = " << cpArg[1] << endl;
+                    return "null";
                 }
 
                 if(atoi(cpArg[0].c_str()) < atoi(cpArg[1].c_str()))
@@ -450,8 +492,14 @@ string Excel::SUM(string arg){
 
     for(int i = 0; i < args.size(); i++){
         cout << "sum arg : " << args[i] << endl;
-        
         args[i] = valParse(args[i]);
+        if(typeOf(args[i]) != "int"){
+            cout << "non int type in sum" << endl;
+            return "null";
+        } 
+    }
+    
+    for(int i = 0; i < args.size(); i++){
         rangeArg = strSplit(args[i], ":");
 
         //case1 1 num
@@ -485,15 +533,13 @@ string Excel::SUM(string arg){
 }
 
 string Excel::IF(string arg){
-    vector<string> funcArg, cpArg, args;
+    vector<string> funcArg, cpArg, args, pos;
+    string res, cpOp = "none";
 
     cout << "if arg = " << arg << endl;
 
     args = argParse(arg, ",");
 
-    string res;
-    string cpOp = "none";
-    vector<string> pos;
 
     if(args.size() == 3){
         for(int i = 0; i < args.size(); i++){
@@ -516,7 +562,27 @@ string Excel::IF(string arg){
 }
 
 string Excel::VLOOKUP(string arg){
-    return string("s");
+    vector<string> args, pos;
+    string res;
+
+    args = argParse(arg, ",");
+
+    if(args.size() == 4){
+        for(int i = 0; i < 4; i++){
+            args[i] = valParse(args[i]);
+            cout << "vlookup arg " << i << " = " << args[i] << endl;
+        }
+
+        if(typeOf(args[0]) != "null" && typeOf(args[2]) == "int" && typeOf(args[3]) == "0"){
+            
+        }
+
+    } else {
+        cout << "num of arg should be 4 in VLOOKUP, get :" << args.size() << endl;
+        return "null";
+    }
+
+    return res;
 }
 
 void Excel::print(int w){
