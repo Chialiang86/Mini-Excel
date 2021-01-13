@@ -1,4 +1,4 @@
-,A,C,D,GQ,ABS,POJ
-a,1,2,5,4,7,8
-ca,97,53,6,4,12,14
-bbac,1,7,4,2,1,"good day"
+,A,B,C
+z,VLOOKUP(14,Ay:Cx,3,0),VLOOKUP(Az,Ay:Cx,2,0),IF(Bz=4,"錯誤","正確")
+y,SUM(By:Cx),SUM(Ax,Cx),IF(7>=By,5,6)
+x,1,2,Cx

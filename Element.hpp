@@ -1,11 +1,6 @@
 #include <string>
 #include <iostream>
 
-#define INT typeid(int).name()
-#define FLOAT typeid(float).name()
-#define DOUBLE typeid(double).name()
-#define STRING typeid(string).name()
-
 struct Element{
 public:
     bool isNum(){
