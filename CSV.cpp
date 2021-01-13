@@ -17,7 +17,7 @@ public:
     bool isNum(){
         if(t == "int") return true;
         for(int i = 0; i < v.size(); i++)
-            if(v[i] < '0' || v[i] > '9')
+            if(v[i] != '-' && (v[i] < '0' || v[i] > '9'))
                 return false;
         return true;
     }
@@ -89,7 +89,7 @@ string typeOf(string s){
 
 bool isNum(string v){
     for(int i = 0; i < v.size(); i++)
-        if(v[i] < '0' || v[i] > '9')
+        if(v[i] != '-' && v[i] < '0' || v[i] > '9')
             return false;
     return true;
 }
@@ -473,12 +473,13 @@ string Excel::valParse(const string s){
                 else res = "0";
             }
 
-            if(!isNum(res) && strSplit(res, ":").size() == 1){
+            if(!isNum(res) && typeOf(res) != "string" && strSplit(res, ":").size() == 1){
                 pos = posParse(res);
                 res = table[C[pos[0]]][I[pos[1]]].val();
             }
         }
     }
+    cout << "res : " << res << endl;
     return res;
 }
 
@@ -522,7 +523,7 @@ string Excel::SUM(string arg){
             ////cout << "(" << pos1[0] << "," << pos1[1] << ")->(" << pos2[0] << "," << pos2[1] << ")" << endl;
             for(int i = I[pos1[1]]; i <= I[pos2[1]]; i++)
                 for(int c = C[pos1[0]]; c <= C[pos2[0]]; c++){
-                    if(table[C[pos1[0]]][I[pos1[1]]].val() == "null")
+                    if(table[c][i].val() == "null")
                         return "null";
                     sum += table[c][i].iVal();
                 }
@@ -533,7 +534,7 @@ string Excel::SUM(string arg){
 }
 
 string Excel::IF(string arg){
-    vector<string> funcArg, cpArg, args, pos;
+    vector<string> funcArg, cpArg, args;
     string res, cpOp = "none";
 
     cout << "if arg = " << arg << endl;
@@ -562,7 +563,7 @@ string Excel::IF(string arg){
 }
 
 string Excel::VLOOKUP(string arg){
-    vector<string> args, pos;
+    vector<string> args, rangeArg, pos;
     string res;
 
     args = argParse(arg, ",");
@@ -573,8 +574,24 @@ string Excel::VLOOKUP(string arg){
             cout << "vlookup arg " << i << " = " << args[i] << endl;
         }
 
-        if(typeOf(args[0]) != "null" && typeOf(args[2]) == "int" && typeOf(args[3]) == "0"){
-            
+        rangeArg = strSplit(args[1], ":");
+
+        if(typeOf(args[0]) != "null" && rangeArg.size() == 2 && typeOf(args[2]) == "int" && (typeOf(args[3]) == "False" || typeOf(args[3]) == "0")){
+            vector<string> pos1, pos2;
+            int diff = atoi(args[2].c_str()) - 1;
+            pos1 = posParse(rangeArg[0]);
+            pos2 = posParse(rangeArg[1]);
+            for(int i = I[pos1[1]]; i <= I[pos2[1]]; i++)
+                for(int c = C[pos1[0]]; c <= C[pos2[0]]; c++)
+                    if(table[c][i].val() == args[0]){
+                        res = table[C[pos1[0]] + diff][i].val();
+                        break;
+                    }
+        } else {
+            cout << "something error in VLOOKUP" << endl;
+            for(int i = 0; i < 4; i++)
+                cout << "vlookup arg : " << i << " " << args[i] << endl;
+            return "null";
         }
 
     } else {
@@ -642,7 +659,7 @@ int main(int argc, char * argv[]){
             e.addIndex(csvInput[i][0]);
         for(int c = 1; c < csvInput[0].size(); c++)
             for(int i = 1; i < csvInput.size(); i++)
-                e(c, i) = csvInput[i][c];
+                e(c, i) = e.valParse(csvInput[i][c]);
     }
 
     e.print();
